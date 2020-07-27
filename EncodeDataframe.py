@@ -1,7 +1,7 @@
 """
 Provides the ability to easily apply functions to a pandas dataframe-like object
     column by column with functionality including default encodings, and regex
-    expression matching, along with some built-in encoding functions.
+    matching, along with some built-in encoding functions.
 """
 
 import numpy as np
@@ -77,7 +77,10 @@ def encode_dataframe(df, encodings, re_match=True, print_progress=False):
                     key_match = current_key
 
         if key_match is None:
-            append_df = pd.DataFrame(df[column_name])
+            if _DEFAULT_STR in encodings.keys():
+                append_df = encodings[_DEFAULT_STR](pd.DataFrame(df[column_name]))
+            else:
+                append_df = pd.DataFrame(df[column_name])
         else:
             # Need to turn the column into a dataframe before applying function
             append_df = encodings[key_match](pd.DataFrame(df[column_name]))
@@ -86,6 +89,13 @@ def encode_dataframe(df, encodings, re_match=True, print_progress=False):
             ret_df[col] = append_df[col]
 
     return ret_df
+
+
+def no_op(df):
+    """
+    No operation, just returns the dataframe
+    """
+    return df
 
 
 def drop(df):
@@ -145,45 +155,132 @@ def to_buckets(df, n_buckets, suppress_warnings=False):
         _max = df.max().max()
         bins = list(np.arange(_min, _max, (_max - _min) / (n_buckets - 1))) + [_max + 1]
 
-    return pd.DataFrame(np.digitize(df, bins, right=False), columns=df.columns)
+    return pd.DataFrame(np.digitize(df, bins, right=False).astype(int), columns=df.columns)
 
 
-def to_percent_buckets(df, n_buckets, suppress_warnings=False):
+def to_percent_buckets(df, n_buckets, initial=0, cutoff=0.01, discrete=False):
     """
-    This function splits the data into n_buckets buckets while doing its best
-        to make sure each of the inner buckets has approximately 
-        (100 / n_buckets)% of the dataset within its bounds. This is not always
-        achievable, for instance, in the case of a dataset that contains all of
-        the same value.
+    Buckets the given dataframe based on what percent of the dataset each
+    unique value takes up (in the case of a discrete dataset), or based on
+    what percent of the total area of the normal distribution with mean and
+    std taken from the dataset.
     
-    :param df: the dataframe
-    :param n_buckets: the number of buckets to bin into, must be > 1
-    :param suppress_warnings: this function can produce some warning messages
-        (for example, in the case of a standard deviation of 0), and if this
-        is True, then those messages will be suppressed.
+    :param df: the dataframe to bucket
+    :param n_buckets: the number of buckets to use (excluding any initial)
+    :param initial: if > 0, the number of buckets to use for an initial bucketing.
+        Takes all of the most common unique values in the dataset until
+        (1 - cutoff)% of the dataset is used, then sorts these into a
+        discrete percent bucketing. It then sorts the rest of the values
+        into whatever percent bucketing is initially passed.
+        This is useful if the data has large spikes in specific values
+        and does not follow a pseudo-normal distribution, yet still
+        has a large number of unique values that should be sorted into
+        a smaller number of bins.
+    :param cutoff: the cutoff to use if initial > 0
+    :param discrete: if True, buckets based on the frequency of each unique
+        value in the dataset. If False, buckets using cutoffs based on
+        what percent of the total area of the normal distibution with mean
+        and standard deviation takes from the dataset. Bucketing should
+        be done discretely if the number of unique values is relatively
+        small compared to the size of the dataset. Bucketing should not
+        be discrete if there are many unique values in the dataset, and
+        it follows a pseudo-normal distribution.
     """
     if len(df) == 0:
         return df
     if n_buckets <= 1:
         raise ValueError("n_buckets must be int > 1, got: %d" % n_buckets)
 
-    loc = np.mean(df.values)
-    scale = np.std(df.values)
+    vals = df.values.reshape([-1])
+    ret = np.empty(len(vals))
+    
+    if initial > 0:
+        # Make uniques and counts and sort them by counts
+        uniques, counts = np.unique(df, return_counts=True)
+        pos = np.argsort(counts)[::-1]
+        counts = counts[pos]
+        uniques = uniques[pos]
+
+        # Make the total running sum and stopping count (based on cutoff)
+        total = np.cumsum(counts)
+        stop_val = total[-1] * (1 - cutoff)
+
+        # Get the first few values that we will be working on
+        p = np.searchsorted(total, stop_val, side='right')
+        total = total[:p + 2 if p != 0 else 1]
+        initial_uniques = uniques[:len(total)]
+
+        # Do the initial bucketing
+        mask = np.isin(vals, initial_uniques)
+        ret[mask] = _pb_discrete(vals[mask], initial)
+
+        ret[~mask] = _pb(vals[~mask], n_buckets) if not discrete else _pb_discrete(vals[~mask], n_buckets)
+        ret[~mask] += max(ret[mask]) + 1
+    else:
+        ret = _pb(vals, n_buckets) if not discrete else _pb_discrete(vals, n_buckets)
+
+    return pd.DataFrame(ret.astype(int).reshape(df.shape), columns=df.columns)
+
+
+def _pb(vals, n_buckets):
+    loc = np.mean(vals)
+    scale = np.std(vals)
 
     if scale == 0:
-        if not suppress_warnings:
-            print("Warning: Standard Deviation is 0, doing a normal binning with "
-                "only one bin")
-        m = df.min().min()  # Could take either min or max since std is 0
+        m = min(vals)  # Could take either min or max since std is 0
         bins = [m, 1.00000001 * m]  # add in a small increment for max of bin
 
     else:
-        # Split based off standard deviation and inverse c.d.f of normal dist,
-        #   then add in min and max vals
+        # Split based off standard deviation and inverse c.d.f of normal dist
         bins = [norm.ppf((i + 1) * (1.0 / n_buckets), loc=loc, scale=scale) 
                 for i in range(n_buckets - 1)]
 
-    return pd.DataFrame(np.digitize(df, bins, right=False), columns=df.columns)
+    return np.digitize(vals, bins, right=False)
+
+
+def _pb_discrete(vals, n_buckets):
+
+    # Get all the unique values and their counts, and order them in descending
+    #   order by counts
+    uniques, counts = np.unique(vals, return_counts=True)
+    pos = np.argsort(counts)[::-1]
+    counts = counts[pos]
+    uniques = uniques[pos]
+
+    # The running total sum of the array
+    total = np.cumsum(counts)
+
+    bins = []
+    current_sum = 0
+    for i in range(n_buckets - 1):
+        if len(uniques) == 1:
+            break
+        
+        # The sum to stop at is remaining_buckets % of current counts sum of remaining uniques
+        stop_sum = current_sum + (total[-1] - current_sum) / (n_buckets - i)
+
+        # Searchsorted through counts to find the index of the value that exceeds stop_sum (use side=right)
+        idx = np.searchsorted(total, stop_sum, side='right')
+
+        # Add in the values to keep in this bin, then remove them from both uniques and total
+        #   while changing the current sum
+        bins.append(uniques[:idx + 1])
+        uniques = uniques[idx + 1:]
+        current_sum = total[idx]
+        total = total[idx + 1:]
+    
+    # Add the last few uniques in
+    bins.append(uniques)
+    ret = np.full(len(vals), -1)
+
+    for i, bin in enumerate(bins[:-1]):
+        places = np.argwhere(np.isin(vals, bin))
+        ret[places] = i
+
+    # Fill in the remaining
+    ret[ret == -1] = len(bins) - 1
+    
+    return ret
 
 
 def to_binary(df, neg=None, n_bits=None):
