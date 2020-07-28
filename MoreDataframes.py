@@ -102,6 +102,7 @@ def keep_min_max_examples(data, min_examples=None, max_examples=None, groupby=No
 
     keeps, removes = _f(data.values if ispandas else np.array(data).reshape([len(data), -1]))
     ret = data.iloc[keeps] if ispandas else data[keeps]
+    removes = data.iloc[removes] if ispandas else data[removes]
     return (ret, removes) if return_removed_min_indices else ret
 
 
