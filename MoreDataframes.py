@@ -172,8 +172,8 @@ def split_by_group(data, sizes, groupby=None, examples_cols=None, randomize=True
         data = _not_already_sorted(data, groupby + (examples_cols if examples_cols is not None else []), ispandas)
 
     arr = data.values[:, groupby + (examples_cols if examples_cols is not None else [])] if ispandas else data[:, groupby]
-    gparts = partition_multiple(arr[:, groupby])
-    examples = partition_multiple(arr[:, examples_cols]) if examples_cols is not None else np.arange(gparts[-1])
+    gparts = partition_multiple(arr[:, np.arange(len(groupby))])
+    examples = partition_multiple(arr[:, np.arange(len(groupby), len(groupby) + len(examples_cols))]) if examples_cols is not None else np.arange(gparts[-1])
     all_parts = np.sort(np.unique(np.concatenate((gparts, examples)))) 
     splits = _split_all_parts(all_parts, gparts)
 
