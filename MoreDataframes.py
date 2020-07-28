@@ -15,7 +15,7 @@ try:
         return numba.njit(func, *args, **kwargs)
 except ImportError:
     print("Warning: numba is not installed, running in no-numba mode. Install it to drastically improve speed.")
-    def check_for_numba(func, *args):
+    def check_for_numba(func, *args, **kwargs):
         return func
 
 
