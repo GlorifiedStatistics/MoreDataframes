@@ -322,7 +322,7 @@ def _is_list(l):
             break
         if len(l) > 0 and l[0] is not None:
             pass
-        return not isinstance(l, dict)
+        return not isinstance(l, (dict, str))
     except TypeError:
         return False
 
