@@ -84,6 +84,8 @@ def encode_dataframe(df, encodings, re_match=True, print_progress=False):
         else:
             # Need to turn the column into a dataframe before applying function
             append_df = encodings[key_match](pd.DataFrame(df[column_name]))
+            
+        append_df = append_df.reset_index(drop=True)
 
         for col in append_df.columns:
             ret_df[col] = append_df[col]
