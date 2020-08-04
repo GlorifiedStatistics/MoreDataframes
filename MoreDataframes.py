@@ -106,7 +106,7 @@ def keep_min_max_examples(data, min_examples=None, max_examples=None, groupby=No
     return (ret, removes) if return_removed_min_indices else ret
 
 
-def split_by_group(data, sizes, groupby=None, examples_cols=None, randomize=True, 
+def split_by_group(data, sizes, max_size=np.inf, groupby=None, examples_cols=None, randomize=True, 
                    random_state=None, already_sorted=False):
     """
     Groups the data by groupby, and splits up each group based on the percent
@@ -125,6 +125,7 @@ def split_by_group(data, sizes, groupby=None, examples_cols=None, randomize=True
         float values. If more than one -1 exists, then all the extra
         examples will be split evenly between all -1 values. The total sum
         of all values that are not -1 must be <= 1.0
+    :param max_size: the largest size of any group in any split
     :param groupby: the column or columns to groupby. Can be integers 
         corresponding to the column indexes to group by, or column names
         in the case of a dataframe. If left as None with two-dimensional 
@@ -194,7 +195,7 @@ def split_by_group(data, sizes, groupby=None, examples_cols=None, randomize=True
             if _size == -1 or _size == 0:
                 continue
 
-            add = min(math.ceil(_size * num_unique), len(rands))
+            add = min(math.ceil(_size * num_unique), len(rands), max_size)
 
             ret_idxs[_idx] += list(_make_keeps(all_parts[rands[:add]], all_parts[rands[:add] + 1]).astype(int))
             rands = rands[add:]
@@ -215,7 +216,7 @@ def split_by_group(data, sizes, groupby=None, examples_cols=None, randomize=True
                     continue
                 
                 neg_size = math.ceil(len(rands) / len([s for s in sizes[_idx:] if s == -1]))
-                add = min(neg_size, len(rands))
+                add = min(neg_size, len(rands), max_size)
 
                 ret_idxs[_idx] += list(_make_keeps(all_parts[rands[:add]], all_parts[rands[:add] + 1]).astype(int))
                 rands = rands[add:]
