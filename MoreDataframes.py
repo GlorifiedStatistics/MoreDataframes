@@ -106,7 +106,7 @@ def keep_min_max_examples(data, min_examples=None, max_examples=None, groupby=No
     return (ret, removes) if return_removed_min_indices else ret
 
 
-def split_by_group(data, sizes, max_size=np.inf, groupby=None, examples_cols=None, randomize=True, 
+def split_by_group(data, sizes, max_size=None, groupby=None, examples_cols=None, randomize=True, 
                    random_state=None, already_sorted=False):
     """
     Groups the data by groupby, and splits up each group based on the percent
@@ -157,6 +157,7 @@ def split_by_group(data, sizes, max_size=np.inf, groupby=None, examples_cols=Non
     s = sum([n for n in sizes if n != -1])
     if s > 1:
         raise ValueError("Total percent size for all sets is > 1: %f" % s)
+    max_size = np.inf if max_size is None else max_size
 
     # If data is empty
     if len(data) == 0:
