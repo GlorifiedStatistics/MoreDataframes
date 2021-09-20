@@ -1,3 +1,10 @@
+# MoreDataframes
+A collection of useful functions on dataframes.
+
+![Tests](https://github.com/GlorifiedStatistics/MoreDataframes/actions/workflow/tests.yml/badge.svg)
+
+
+
 Encode_df function:
 - Takes in:
     * some values (array-like)
