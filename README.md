@@ -1,7 +1,7 @@
 # MoreDataframes
 A collection of useful functions on dataframes.
 
-![Tests](https://github.com/GlorifiedStatistics/MoreDataframes/actions/workflow/tests.yml/badge.svg)
+![Tests](https://github.com/GlorifiedStatistics/MoreDataframes/actions/workflows/tests.yml/badge.svg)
 
 
 
