@@ -9,12 +9,13 @@ from .mdf_typing import ArrayLike, NDArray, EFuncInfo, Any
 def noop(vals: ArrayLike, encoding_info: EFuncInfo, inverse: bool = False) -> NDArray[Any]:
     """
     Perform no operation (identity function)
-    :param vals: the pandas dataframe to encode
+    :param vals: the ArrayLike object to encode
     :param encoding_info: a dictionary to add encoding information into when inverse=False, or a dictionary that
-        contains the encoding information when inverse=True. The encoding_info is local to each encoding instance,
-        so there is no need to worry about overwriting anything.
-    :param inverse: if False, then encode the dataframe, otherwise decode it
-    :return: a pandas dataframe
+        contains the encoding information when inverse=True. The encoding_info is a separate, empty dictionary created
+        for each call to the encoding function. Modify as you wish within this function call without fears of
+        overwriting other data.
+    :param inverse: if False, then encode the values, otherwise decode it
+    :return: a numpy array
     """
     return to_numpy(vals)
 
@@ -22,12 +23,14 @@ def noop(vals: ArrayLike, encoding_info: EFuncInfo, inverse: bool = False) -> ND
 def drop(vals: ArrayLike, encoding_info: EFuncInfo, inverse: bool = False) -> None:
     """
     Drop the dataframe, and do not keep track of it for decoding.
-    :param vals: the pandas dataframe to encode
+    Perform no operation (identity function)
+    :param vals: the ArrayLike object to encode
     :param encoding_info: a dictionary to add encoding information into when inverse=False, or a dictionary that
-        contains the encoding information when inverse=True. The encoding_info is local to each encoding instance,
-        so there is no need to worry about overwriting anything.
-    :param inverse: if False, then encode the dataframe, otherwise decode it
-    :return: a pandas dataframe
+        contains the encoding information when inverse=True. The encoding_info is a separate, empty dictionary created
+        for each call to the encoding function. Modify as you wish within this function call without fears of
+        overwriting other data.
+    :param inverse: if False, then encode the values, otherwise decode it
+    :return: a numpy array
     """
     return None
 
@@ -35,13 +38,14 @@ def drop(vals: ArrayLike, encoding_info: EFuncInfo, inverse: bool = False) -> No
 def factorize(vals: ArrayLike, encoding_info: EFuncInfo, inverse: bool = False) -> NDArray[np.int64]:
     """
     Factorizes each column, and stores the label information into encoding_info.
-    :param vals: the pandas dataframe to encode
+    Perform no operation (identity function)
+    :param vals: the ArrayLike object to encode
     :param encoding_info: a dictionary to add encoding information into when inverse=False, or a dictionary that
         contains the encoding information when inverse=True. The encoding_info is a separate, empty dictionary created
-        for each call to the encoding function. Modify as you wish within this function call without fears of overwriting
-        other data.
-    :param inverse: if False, then encode the dataframe, otherwise decode it
-    :return: a pandas dataframe
+        for each call to the encoding function. Modify as you wish within this function call without fears of
+        overwriting other data.
+    :param inverse: if False, then encode the values, otherwise decode it
+    :return: a numpy array of dtype int64
     """
     vals = to_numpy(vals)
     ret = np.empty(vals.shape, dtype=np.int64)
@@ -65,14 +69,12 @@ def to_numpy(vals: ArrayLike) -> NDArray[Any]:
     if isinstance(vals, (pd.DataFrame, pd.Series)):
         vals = vals.to_numpy()
 
-    if isinstance(vals, np.ndarray):
-        ret = vals
-    else:
-        ret = np.array(vals)
-        if ret.ndim == 0:
-            raise TypeError(f"Could not convert object of type '{type(vals)}' into an array.")
+    ret = vals if isinstance(vals, np.ndarray) else np.array(vals)
 
-    if ret.ndim == 1:
+    if ret.ndim == 0:
+        raise TypeError(f"Could not convert object of type '{type(vals)}' into an array.")
+
+    if ret.ndim == 1 or (ret.ndim == 2 and ret.size == 0):
         ret = ret.reshape([-1, 1])
     elif ret.ndim > 2:
         raise ValueError(f"Input must be 2d-array, instead has {ret.ndim} dimensions and shape {ret.shape}")
