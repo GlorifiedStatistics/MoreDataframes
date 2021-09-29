@@ -1,4 +1,4 @@
-from typing import Union, Callable, Any, Dict, List, TYPE_CHECKING
+from typing import Union, Callable, Any, Dict, List, TYPE_CHECKING, Tuple, Optional, TypeVar
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike, NDArray
@@ -15,4 +15,4 @@ else:
     EncodingDict = Any
 
 __all__ = ['ArrayLike', 'NDArray', 'Union', 'Callable', 'Any', 'Dict', 'EncodingFunction', 'EFuncInfo', 'EncodingDict',
-           'List']
+           'List', 'Tuple', 'Optional', 'TypeVar']
