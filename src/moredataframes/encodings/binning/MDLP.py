@@ -2,12 +2,10 @@
 Code modified from: https://github.com/tmadl/sklearn-expertsys/blob/master/Discretization
 """
 import numpy as np
-from moredataframes.mdfutils.typing import ArrayLike, NDArray, Any, Tuple, Union, List, Optional, TypeVar
+from moredataframes.mdfutils.typing import ArrayLike, NDArray, Any, Tuple, Union, List, Optional
 from moredataframes.mdfutils import to_numpy
 
 
-_T = TypeVar('_T')
-_U = TypeVar('_U')
 _LOG2of3 = np.log2(3)
 
 
@@ -17,7 +15,7 @@ def mdlp_bin(x: ArrayLike, y: ArrayLike) -> NDArray[Any]:
     """
     x, y = to_numpy(x), to_numpy(y)
 
-    def _sort(_x: NDArray[_T], _y: NDArray[_U]) -> Tuple[NDArray[_T], NDArray[_U]]:
+    def _sort(_x: NDArray[Any], _y: NDArray[Any]) -> Tuple[NDArray[Any], NDArray[Any]]:
         args = np.argsort(_x)
         return _x[args], _y[args]
 
