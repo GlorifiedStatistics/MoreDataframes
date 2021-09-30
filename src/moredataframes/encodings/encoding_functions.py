@@ -3,11 +3,11 @@ A collection of built-in encoding functions for use in moredataframes.encode_df(
 """
 import pandas as pd
 import numpy as np
-from moredataframes.mdfutils.typing import ArrayLike, NDArray, EFuncInfo, Any
+from moredataframes.mdfutils.typing import ArrayLike, NDArray, EFuncInfo, Any, Optional
 from moredataframes.mdfutils import to_numpy
 
 
-def noop(vals: ArrayLike, encoding_info: EFuncInfo, inverse: bool = False) -> NDArray[Any]:
+def noop(vals: ArrayLike, encoding_info: EFuncInfo, inverse: Optional[bool] = False) -> NDArray[Any]:
     """
     Perform no operation (identity function)
     :param vals: the ArrayLike object to encode
@@ -21,7 +21,7 @@ def noop(vals: ArrayLike, encoding_info: EFuncInfo, inverse: bool = False) -> ND
     return to_numpy(vals)
 
 
-def drop(vals: ArrayLike, encoding_info: EFuncInfo, inverse: bool = False) -> None:
+def drop(vals: ArrayLike, encoding_info: EFuncInfo, inverse: Optional[bool] = False) -> None:
     """
     Drop the dataframe, and do not keep track of it for decoding.
     Perform no operation (identity function)
@@ -36,7 +36,7 @@ def drop(vals: ArrayLike, encoding_info: EFuncInfo, inverse: bool = False) -> No
     return None
 
 
-def factorize(vals: ArrayLike, encoding_info: EFuncInfo, inverse: bool = False) -> NDArray[np.int64]:
+def factorize(vals: ArrayLike, encoding_info: EFuncInfo, inverse: Optional[bool] = False) -> NDArray[np.int64]:
     """
     Factorizes each column, and stores the label information into encoding_info.
     Perform no operation (identity function)
