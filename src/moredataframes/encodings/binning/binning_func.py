@@ -1,14 +1,16 @@
 """
 Wrapper for binning functions
 """
-from moredataframes.mdfutils.typing import ArrayLike, EFuncInfo, Any, Sequence, ExpectedType, \
+from moredataframes.mdfutils.typing import ArrayLike, EFuncInfo, Any, ExpectedType, \
     Callable, NDArray, Optional, EncodingInfoExpectedType
 from moredataframes.mdfutils import to_numpy, check_encoding_info, check_kwargs_types
-from moredataframes.encodings.binning import decode_bins, ENCODING_INFO_BINS_KEY
+from moredataframes.encodings.binning import decode_bins
+from moredataframes.constants import ENCODING_INFO_BINS_KEY
 
 
-def binning_function(*encoding_info_keys_and_types: Sequence[EncodingInfoExpectedType],
-                     **kwarg_types: ExpectedType) -> Callable[[...], NDArray[Any]]:
+def binning_function(*encoding_info_keys_and_types: EncodingInfoExpectedType,
+                     **kwarg_types: ExpectedType) \
+        -> Callable[[Callable[..., NDArray[Any]]], Callable[..., NDArray[Any]]]:
     """
     Wraps a binning function to help abstract out some common functionality.
     Ensures that:
@@ -28,7 +30,7 @@ def binning_function(*encoding_info_keys_and_types: Sequence[EncodingInfoExpecte
             key exists, then args must be the same length as this list otherwise an error is shown
     :return: a binning function
     """
-    def arg_wrapper(func: Callable) -> Callable:
+    def arg_wrapper(func: Callable[..., NDArray[Any]]) -> Callable[..., NDArray[Any]]:
         def wrapper(vals: ArrayLike, encoding_info: EFuncInfo, inverse: Optional[bool] = False,
                     **kwargs: Any) -> NDArray[Any]:
             vals = to_numpy(vals)
@@ -36,6 +38,8 @@ def binning_function(*encoding_info_keys_and_types: Sequence[EncodingInfoExpecte
             # Check that encoding_info contains what it should, if inverse = True, then return the decoded values
             if inverse:
                 check_encoding_info(encoding_info, encoding_info_keys_and_types)
+
+                # We want two different function calls here so the default decode_method can be kept if I change it ever
                 if 'decode_method' in kwargs:
                     return decode_bins(vals, encoding_info[ENCODING_INFO_BINS_KEY],
                                        decode_method=kwargs['decode_method'])

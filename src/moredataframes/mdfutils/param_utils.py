@@ -1,16 +1,15 @@
 """
 Utility functions for checking correctness of user-provided parameters.
 """
-from moredataframes.mdfutils.typing import Sequence, Union, ExpectedType, EFuncInfo, Dict, Any, Tuple, \
-    EncodingInfoExpectedType
+from moredataframes.mdfutils.typing import Sequence, Union, ExpectedType, EFuncInfo, Dict, Any, EncodingInfoExpectedType
 from moredataframes.errors import MissingEncodingInfoError
 
 
-def string_param(param: str, accept_list: Sequence[str], ignores: Union[str, Sequence[str], None] = '-_',
+def string_param(param: Union[str, Any], accept_list: Sequence[str], ignores: Union[str, Sequence[str], None] = '-_',
                  ignore_case: bool = True) -> bool:
     """
     Returns true if the given param is a string, and if that string appears in the given accept_list, false otherwise.
-    :param param: the parameters to check
+    :param param: the parameters to check (should be a string)
     :param accept_list: the list of strings to accept
     :param ignores: characters that can be ignored. For example,
         string_param('par_am', ['param', 'param2'], ignores=None) would return False while
@@ -104,5 +103,5 @@ def _check_type(_type: ExpectedType, v: Any) -> bool:
         return True
 
     # Remove None from _type for isinstance check
-    _type = tuple([t for t in _type if t is not None])
-    return len(_type) == 0 or not isinstance(v, _type)
+    _type_not_None = tuple([t for t in _type if t is not None])
+    return len(_type_not_None) == 0 or not isinstance(v, _type_not_None)

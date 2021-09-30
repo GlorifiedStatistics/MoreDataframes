@@ -1,5 +1,4 @@
 from typing import Union, Callable, Any, Dict, List, TYPE_CHECKING, Tuple, Optional, TypeVar, Sequence
-from typing_extensions import Protocol
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike, NDArray
@@ -8,7 +7,7 @@ if TYPE_CHECKING:
     EFuncInfo = Dict[Union[str, int], Any]
 
     EncodingDict = Dict[Union[str, int], EncodingFunction]
-    ExpectedType = Union[type, Sequence[type]]
+    ExpectedType = Union[type, None, Sequence[Union[type, None]]]
     EncodingInfoExpectedType = Tuple[str, ExpectedType]
 
 else:

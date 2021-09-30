@@ -7,7 +7,7 @@ from moredataframes.errors import UserFunctionCallError
 import numpy as np
 
 
-def decode_bins(vals: ArrayLike, bin_edges: Sequence[Union[float, int]],
+def decode_bins(vals: ArrayLike, bin_edges: Union[Sequence[Union[float, int]], NDArray[Any]],
                 decode_method: Optional[Union[str, Callable[[NDArray[Any], NDArray[Any]], ArrayLike]]] = 'range') \
         -> NDArray[Any]:
     """
@@ -36,13 +36,12 @@ def decode_bins(vals: ArrayLike, bin_edges: Sequence[Union[float, int]],
         bin_edges = to_numpy(bin_edges).reshape(-1)
     except (ValueError, TypeError):
         try:
-            _bins = [b for b in bin_edges]
-            if not all([(isinstance(b, (float, int)) or
-                         issubclass(type(b), (np.integer, np.floating))) for b in _bins]):
-                raise TypeError
-            bin_edges = np.array(_bins)
+            bin_edges = np.array([b for b in bin_edges])
         except TypeError:
-            raise TypeError("bin_edges is not a sequence of floats, instead is: %s" % type(bin_edges))
+            raise TypeError("bin_edges is not a sequence of floats or ints, instead is: %s" % type(bin_edges))
+
+    # Sort the bin edges
+    bin_edges = np.sort(bin_edges)
 
     # Check decode_method is either a string or implements __call__
     if not (isinstance(decode_method, str) or callable(decode_method)):

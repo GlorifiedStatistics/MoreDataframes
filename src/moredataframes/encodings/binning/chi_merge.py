@@ -9,7 +9,8 @@ https://dl.acm.org/doi/abs/10.5555/1867135.1867154
 """
 from moredataframes.mdfutils.typing import ArrayLike, EFuncInfo, Optional, Union, NDArray, Any
 from moredataframes.mdfutils import to_numpy
-from moredataframes.encodings.binning import binning_function, ENCODING_INFO_BINS_KEY
+from moredataframes.encodings.binning import binning_function
+from moredataframes.constants import ENCODING_INFO_BINS_KEY
 import numpy as np
 
 
@@ -59,4 +60,3 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, max_bins: Optional[Unio
 
     # Encode each column
     return np.array([10])
-

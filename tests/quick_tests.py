@@ -1,6 +1,5 @@
-def f(a, c, d=10):
-    pass
+import numpy as np
 
-import inspect
+arr = np.array([1, 2, 3])
 
-print(isinstance(None, None))
+print(type(arr), arr.dtype, type(arr[0]), isinstance(int, type(arr[0])))
