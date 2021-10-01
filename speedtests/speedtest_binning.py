@@ -115,6 +115,29 @@ def speedtest_chi_square_all():
 
         return ret
 
+    def numpy_python(boundaries, labels, classes):
+        ret = []
+
+        for i in range(len(boundaries)):
+            parta = labels[0 if i == 0 else boundaries[i - 1]: boundaries[i]]
+            partb = labels[boundaries[i]: len(labels) if i == len(boundaries) - 1 else boundaries[i + 1]]
+            both_parts = labels[0 if i == 0 else boundaries[i - 1]: len(labels) if i == len(boundaries) - 1 else boundaries[i + 1]]
+
+            n = len(parta) + len(partb)
+            cj_dict = {k: v for k, v in zip(*np.unique(both_parts, return_counts=True))}
+            cj_dict.update({k: 0 for k in [c for c in classes if c not in cj_dict]})
+
+            s = 0
+            for part in [parta, partb]:
+                for c in classes:
+                    a = len(part[part == c])
+                    e = max(0.1, len(part) * (cj_dict[c] / n))
+                    s += (a - e)**2 / e
+
+            ret.append(s)
+
+        return ret
+
     def numba_python(boundaries, labels, classes):
         # Enforce that classes is integers
         labels, label_labels = pd.factorize(labels) if not np.issubdtype(labels.dtype, np.integer) or \
@@ -132,12 +155,16 @@ def speedtest_chi_square_all():
         np.array([0, 0, 0, 1, 1, 2]),
         np.random.randint(0, 100, size=1_000),
         np.random.randint(0, 100, size=10_000),
+        np.array([3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 2, 2, 1, 1, 1]),
+        np.repeat(np.random.choice(range(100), 100, replace=False), np.random.randint(1, 100, size=100))
     ]
     _labels_names = [
         'test_labels',
         'small_manual',
         'small_random_labels',
         'medium_random_labels',
+        'small_long_string',
+        'medium_long_string',
     ]
 
     _func_list = [
