@@ -4,9 +4,9 @@ Speed tests for the binning algorithms.
 import numpy as np
 from timeit import default_timer
 import pandas as pd
-import numba
+from moredataframes.mdfutils import check_for_numba
 
-@numba.njit()
+
 def _numba_accelerate_chi_square_all(b, l, num_classes):
     ret = np.empty(len(b))
     class_counts_a = np.zeros(num_classes)
@@ -115,35 +115,23 @@ def speedtest_chi_square_all():
 
         return ret
 
-    def numpy_python(boundaries, labels, classes):
-        ret = []
-
-        for i in range(len(boundaries)):
-            parta = labels[0 if i == 0 else boundaries[i - 1]: boundaries[i]]
-            partb = labels[boundaries[i]: len(labels) if i == len(boundaries) - 1 else boundaries[i + 1]]
-            both_parts = labels[0 if i == 0 else boundaries[i - 1]: len(labels) if i == len(boundaries) - 1 else boundaries[i + 1]]
-
-            n = len(parta) + len(partb)
-            cj_dict = {k: v for k, v in zip(*np.unique(both_parts, return_counts=True))}
-            cj_dict.update({k: 0 for k in [c for c in classes if c not in cj_dict]})
-
-            s = 0
-            for part in [parta, partb]:
-                for c in classes:
-                    a = len(part[part == c])
-                    e = max(0.1, len(part) * (cj_dict[c] / n))
-                    s += (a - e)**2 / e
-
-            ret.append(s)
-
-        return ret
+    numba_accelerated = check_for_numba()(_numba_accelerate_chi_square_all)
 
     def numba_python(boundaries, labels, classes):
         # Enforce that classes is integers
         labels, label_labels = pd.factorize(labels) if not np.issubdtype(labels.dtype, np.integer) or \
                                          len(classes) != np.max(labels) - 1 else (classes, None)
 
-        return _numba_accelerate_chi_square_all(boundaries, labels, len(classes))
+        return numba_accelerated(boundaries, labels, len(classes))
+
+    failed_numba = check_for_numba(test_no_numba=True)(_numba_accelerate_chi_square_all)
+
+    def numba_failed(boundaries, labels, classes):
+        # Enforce that classes is integers
+        labels, label_labels = pd.factorize(labels) if not np.issubdtype(labels.dtype, np.integer) or \
+                                         len(classes) != np.max(labels) - 1 else (classes, None)
+
+        return failed_numba(boundaries, labels, len(classes))
 
     _labels_test = np.array([0, 1, 0, 1, 0, 1, 0, 1])
     _labels_test_expected = np.array([2 for i in range(len(_labels_test) - 1)])
@@ -170,6 +158,7 @@ def speedtest_chi_square_all():
     _func_list = [
         slow_python,
         numba_python,
+        numba_failed,
     ]
 
     def _get_boundaries_and_classes(_l):
