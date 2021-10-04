@@ -2,9 +2,9 @@
 Speed tests for the binning algorithms.
 """
 import numpy as np
-from timeit import default_timer
 import pandas as pd
 from moredataframes.mdfutils import check_for_numba
+from speedtester import speedtest
 
 
 def _numba_accelerate_chi_square_all(b, l, num_classes):
@@ -133,20 +133,17 @@ def speedtest_chi_square_all():
 
         return failed_numba(boundaries, labels, len(classes))
 
-    _labels_test = np.array([0, 1, 0, 1, 0, 1, 0, 1])
-    _labels_test_expected = np.array([2 for i in range(len(_labels_test) - 1)])
-
     np.random.seed(123456)
 
-    _labels_list = [
-        _labels_test,
+    test_vals = [
+        np.array([0, 1, 0, 1, 0, 1, 0, 1]),
         np.array([0, 0, 0, 1, 1, 2]),
         np.random.randint(0, 100, size=1_000),
         np.random.randint(0, 100, size=10_000),
         np.array([3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 2, 2, 1, 1, 1]),
         np.repeat(np.random.choice(range(100), 100, replace=False), np.random.randint(1, 100, size=100))
     ]
-    _labels_names = [
+    speed_input_labels = [
         'test_labels',
         'small_manual',
         'small_random_labels',
@@ -155,47 +152,13 @@ def speedtest_chi_square_all():
         'medium_long_string',
     ]
 
-    _func_list = [
+    funcs = [
         slow_python,
         numba_python,
         numba_failed,
     ]
+    
+    speed_inputs = [[(np.argwhere(s[:-1] != s[1:]).reshape(-1) + 1, s, np.unique(s)), {}] for s in test_vals]
 
-    def _get_boundaries_and_classes(_l):
-        _b = np.argwhere(_l[:-1] != _l[1:]).reshape(-1) + 1
-        _c = np.unique(_l)
-        return _b, _c
+    speedtest(speed_inputs, speed_input_labels, funcs)
 
-    func_times = []
-
-    outputs = []
-
-    for func in _func_list:
-        # Check that the algorithm might work (NOTE: this is not a full testing my any means), as well as call the
-        #   function once to make sure numba can compile to not mess with timings
-        _boundaries, _classes = _get_boundaries_and_classes(_labels_test)
-        np.testing.assert_array_almost_equal(func(_boundaries, _labels_test, _classes), _labels_test_expected)
-
-        times = []
-        these_outputs = []
-
-        for _labels in _labels_list:
-            _boundaries, _classes = _get_boundaries_and_classes(_labels)
-
-            t = default_timer()
-            these_outputs.append(func(_boundaries, _labels, _classes))
-            times.append(default_timer() - t)
-
-        func_times.append(times)
-        outputs.append(these_outputs)
-
-    for i in range(1, len(outputs)):
-        for j in range(len(outputs[0])):
-            np.testing.assert_array_almost_equal(outputs[i][j], outputs[i - 1][j])
-
-    print("Timings:\n")
-    print(pd.DataFrame(func_times, columns=_labels_names, index=[f.__name__ for f in _func_list]).to_markdown(floatfmt='0.4f'))
-
-
-if __name__ == '__main__':
-    speedtest_chi_square_all()

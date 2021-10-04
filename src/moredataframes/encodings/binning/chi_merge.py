@@ -16,8 +16,7 @@ import pandas as pd
 from scipy.stats import chi2
 
 
-@binning_function((ENCODING_INFO_BINS_KEY, (tuple, list, np.ndarray)), max_bins=(None, int), min_bins=(None, int),
-                  threshold=float)
+@binning_function(max_bins=(None, int), min_bins=(None, int), threshold=float)
 def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = None,
               max_bins: Optional[Union[int, None]] = None, min_bins: Optional[Union[int, None]] = None,
               threshold: Optional[float] = 0.05) -> NDArray[Any]:
@@ -51,8 +50,7 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = Non
         overwriting other data.
     :param labels: the labels for the data (required). If left as None, an error is raised. Should be a sequence of
         elements the same length as the input data vals, and should be able to be converted to a numpy array, as well
-        as have the ability to determine uniqueness with np.unique(). Assumes these labels have already been factorized
-        (which should happen automatically as part of the @binning_function decorator)
+        as have the ability to determine uniqueness with np.unique().
     :param max_bins: if not None, then an int >= 2 specifying the maximum number of bins to use. Will continue the
         merging algorithm until there are <= this number of bins, even if the threshold value has been passed.
     :param min_bins: if not None, then an int >= 2 specifying the minimum number of bins to use. Will stop the merging
@@ -106,7 +104,7 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = Non
         while True:
 
             # Stop if we have min_bins bins, or if both the min_val is less than the threshold and we have <= max_bins
-            #   bins (or in our case, len(boundary_indices) < max_bins since there are len(boundary_indices) + 1 bins
+            #   bins (or in our case, len(boundary_indices) < max_bins since there are len(boundary_indices) + 1 bins)
             if len(boundary_indices) < min_bins or (min_val > chi2_threshold and len(boundary_indices) < max_bins):
                 break
 
@@ -117,6 +115,7 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = Non
 
             # Add in the new chi2 values, and update min_idx and min_val
             if new_left is not None:
+
 
 
 

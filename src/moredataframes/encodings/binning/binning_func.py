@@ -6,6 +6,11 @@ from moredataframes.mdfutils.typing import ArrayLike, EFuncInfo, Any, ExpectedTy
 from moredataframes.mdfutils import to_numpy, check_encoding_info, check_kwargs_types
 from moredataframes.encodings.binning import decode_bins
 from moredataframes.constants import ENCODING_INFO_BINS_KEY
+import numpy as np
+
+
+# The different types that could be used for defining the bins in a binning function
+ENCODING_INFO_BINS_TYPES_TUPLE = (list, tuple, np.ndarray)
 
 
 def binning_function(*encoding_info_keys_and_types: EncodingInfoExpectedType,
@@ -15,7 +20,9 @@ def binning_function(*encoding_info_keys_and_types: EncodingInfoExpectedType,
     Wraps a binning function to help abstract out some common functionality.
     Ensures that:
         - the input vals will be a numpy NDArray
-        - the encoding_info will be a dictionary that has key, type pairs defined in encoding_info_keys_and_types
+        - the encoding_info will be a dictionary that has key, type pairs defined in encoding_info_keys_and_types.
+            There is a default value of (ENCODING_INFO_BINS_KEY, ENCODING_INFO_BINS_TYPES_TUPLE) added to the 
+                encoding_info_keys_and_types to make sure the bins exists in the encoding info on inverse=True
             * NOTE: This is only checked if inverse=True
             * NOTE: extra keys in encoding_info but not in encoding_info_keys_and_types will be ignored
         - if inverse=True, then decode_bins is called instead of the binning function
@@ -30,6 +37,8 @@ def binning_function(*encoding_info_keys_and_types: EncodingInfoExpectedType,
             key exists, then args must be the same length as this list otherwise an error is shown
     :return: a binning function
     """
+    encoding_info_keys_and_types.append((ENCODING_INFO_BINS_KEY, ENCODING_INFO_BINS_TYPES_TUPLE))
+
     def arg_wrapper(func: Callable[..., NDArray[Any]]) -> Callable[..., NDArray[Any]]:
         def wrapper(vals: ArrayLike, encoding_info: EFuncInfo, inverse: Optional[bool] = False,
                     **kwargs: Any) -> NDArray[Any]:
