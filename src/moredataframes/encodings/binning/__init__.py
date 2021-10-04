@@ -1,5 +1,5 @@
 from .MDLP import mdlp_bin
-from .decode_bins_func import decode_bins
+from .decode_binning import decode_bins
 from .binning_func import binning_function
 
 
