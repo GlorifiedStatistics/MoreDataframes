@@ -7,8 +7,6 @@ if TYPE_CHECKING:
     EFuncInfo = Dict[Union[str, int], Any]
 
     EncodingDict = Dict[Union[str, int], EncodingFunction]
-    ExpectedType = Union[type, None, Sequence[Union[type, None]]]
-    EncodingInfoExpectedType = Tuple[str, ExpectedType]
 
 else:
     ArrayLike = List
@@ -17,8 +15,6 @@ else:
     EFuncInfo = Any
     EncodingDict = Any
     DecodeBinArgs = Any
-    ExpectedType = Any
-    EncodingInfoExpectedType = Any
 
 __all__ = ['ArrayLike', 'NDArray', 'Union', 'Callable', 'Any', 'Dict', 'EncodingFunction', 'EFuncInfo', 'EncodingDict',
-           'List', 'Tuple', 'Optional', 'TypeVar', 'Sequence', 'ExpectedType', 'EncodingInfoExpectedType']
+           'List', 'Tuple', 'Optional', 'TypeVar', 'Sequence']

@@ -9,14 +9,14 @@ https://dl.acm.org/doi/abs/10.5555/1867135.1867154
 """
 from moredataframes.mdfutils.typing import ArrayLike, EFuncInfo, Optional, Union, NDArray, Any, List, Sequence
 from moredataframes.mdfutils import to_numpy, check_for_numba
-from moredataframes.encodings.binning import binning_function
 from moredataframes.constants import ENCODING_INFO_BINS_KEY
+from .simple_binning import binning_function
 import numpy as np
 import pandas as pd
 from scipy.stats import chi2
 
 
-@binning_function(max_bins=(None, int), min_bins=(None, int), threshold=float)
+@binning_function
 def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = None,
               max_bins: Optional[Union[int, None]] = None, min_bins: Optional[Union[int, None]] = None,
               threshold: Optional[float] = 0.05) -> NDArray[Any]:
