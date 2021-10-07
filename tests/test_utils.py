@@ -3,13 +3,8 @@ Unit tests for the mdfutils subpackage.
 """
 import numpy as np
 import pandas as pd
+import pytest
 from moredataframes.mdfutils import to_numpy
-
-try:
-    import pytest
-except ImportError:
-    print("Pytest is not installed. Install to run tests using 'pip install pytest'.")
-    exit(-1)
 
 
 @pytest.mark.parametrize("array_like, expected", [

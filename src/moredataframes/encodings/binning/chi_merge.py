@@ -9,8 +9,8 @@ https://dl.acm.org/doi/abs/10.5555/1867135.1867154
 """
 from moredataframes.mdfutils.typing import ArrayLike, EFuncInfo, Optional, Union, NDArray, Any, List, Sequence
 from moredataframes.mdfutils import to_numpy, check_for_numba
-from moredataframes.constants import ENCODING_INFO_BINS_KEY
 from .simple_binning import binning_function
+from moredataframes.constants import BIN_RIGHT_EDGE_OFFSET
 import numpy as np
 import pandas as pd
 from scipy.stats import chi2
@@ -62,8 +62,13 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = Non
         longer, resulting in fewer bins and larger intervals.
     :return: a numpy array
     """
-    vals, labels = to_numpy(vals), to_numpy(labels)
-    min_bins, max_bins = 0 if min_bins is None else min_bins, np.inf if max_bins is None else max_bins
+    # Enforce that classes is integers
+    labels = to_numpy(labels).reshape(-1)
+    num_classes = len(np.unique(labels))
+    labels, label_labels = pd.factorize(labels) if not np.issubdtype(labels.dtype, np.integer) or \
+                                                   num_classes != np.max(labels) - 1 else (labels, None)
+
+    min_bins, max_bins = 2 if min_bins is None else min_bins, np.inf if max_bins is None else max_bins
 
     # Check to make sure the lengths are the same
     if len(vals) != len(labels):
@@ -72,14 +77,13 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = Non
 
     # Check to make sure threshold makes sense
     if not 0 < threshold <= 1:
-        raise ValueError("Threshold should be in the range (0, 1], instead is: %d" % threshold)
+        raise ValueError("Threshold should be in the range (0, 1], instead is: %f" % threshold)
 
-    ret = []
+    ret_bins = []
 
     # Find the number of classes, and the chi2 value of our threshold/p-value. For this, we use the inverse
     #   survival function of the chi2 distribution
-    classes = np.unique(labels)
-    chi2_threshold = chi2.isf(threshold, len(classes) - 1)
+    chi2_threshold = chi2.isf(threshold, num_classes - 1)
 
     # Go through each column, applying the chimerge algorithm
     for col in vals.T:
@@ -91,56 +95,36 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = Non
 
         # Left such that if boundary_indices[i] = x, then labels[x - 1] != labels[x], but labels[x - 1] may be equal
         #    to labels[x - 2]. IE: the i-th partition is the labels range [boundary_indices[i - 1], boundary_indices[i])
-        boundary_indices = np.argwhere(labels_sorted[:-1] != labels_sorted[1:]).reshape(-1) + 1
+        boundary_indices = np.argwhere(col[:-1] != col[1:]).reshape(-1) + 1
 
         # Compute all the chi-square values
-        chi_squares = _chi_square_all(boundary_indices, labels_sorted, classes)
+        chi_squares = _numba_accelerate_chi_square_all(boundary_indices, labels_sorted, num_classes)
 
-        # Find the minimum chi-square index and value
+        # Find the minimum chi-square index (which should be the same index in boundary_indices), and its value
         min_idx = np.argmin(chi_squares)
-        min_val = chi_squares[min_idx]
 
         # Iterate until stopping criterion is met
         while True:
 
             # Stop if we have min_bins bins, or if both the min_val is less than the threshold and we have <= max_bins
             #   bins (or in our case, len(boundary_indices) < max_bins since there are len(boundary_indices) + 1 bins)
-            if len(boundary_indices) < min_bins or (min_val > chi2_threshold and len(boundary_indices) < max_bins):
+            if len(boundary_indices) < min_bins or \
+                    (chi_squares[min_idx] > chi2_threshold and len(boundary_indices) < max_bins):
                 break
 
             # Otherwise, we can merge the smallest chi2 value bins, and recompute their left and right chi2 values
+            boundary_indices = np.concatenate((boundary_indices[:min_idx], boundary_indices[min_idx + 1:]))
+            low, high = max(min_idx - 1, 0), min(min_idx + 1, len(boundary_indices))
+            new_cs = _numba_accelerate_chi_square_all(boundary_indices[low:high], labels_sorted, num_classes)
+            chi_squares = np.concatenate((chi_squares[:low], new_cs, chi_squares[high + 1:]))
 
-            new_left = None
-            new_right = None
+            # Update the new min_idx
+            min_idx = np.argmin(chi_squares)
 
-            # Add in the new chi2 values, and update min_idx and min_val
-            if new_left is not None:
+        # Add bins to retbins
+        ret_bins.append(np.concatenate(([col[0]], col[boundary_indices], [col[-1] + BIN_RIGHT_EDGE_OFFSET])))
 
-
-
-
-
-    # Need to transpose since they were columns
-    return np.array(ret).T
-
-
-def _chi_square_all(boundaries: NDArray[Any], labels: NDArray[Any], classes: Sequence[Any]) -> List[float]:
-    """
-    Computes the chi-square values between each partition and returns them as a list.
-    This function is left separate than _chi_square() to speed up computation using numpy's vectorized methods.
-    :param boundaries: the indicies describing the boundaries of a partition, such that if boundaries[i] = x, then
-        labels[x - 1] is in a different partition than labels[x], however it may be in the same partition as
-        labels[x - 2]
-    :param labels: the class labels
-    :param classes: the list of unique classes in the entire column
-    :return: a list chi-squares such that chi-squares[i] is the chi-square value between the 0-th and 1-st partition
-        of labels
-    """
-    # Enforce that classes is integers
-    labels, label_labels = pd.factorize(labels) if not np.issubdtype(labels.dtype, np.integer) or \
-                                                   len(classes) != np.max(labels) - 1 else (classes, None)
-
-    return _numba_accelerate_chi_square_all(boundaries, labels, len(classes))
+    return ret_bins
 
 
 @check_for_numba()

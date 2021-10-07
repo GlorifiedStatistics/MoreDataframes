@@ -1,10 +1,11 @@
 """
 Simple binning methods such as fixed-length and frequency binning.
 """
-from moredataframes.constants import ENCODING_INFO_BINS_KEY
-from moredataframes.mdfutils.typing import ArrayLike, EFuncInfo, Any, Callable, NDArray, Optional, Union, Sequence
+from moredataframes.mdfutils.typing import ArrayLike, EFuncInfo, Any, Callable, NDArray, Optional, Union, Sequence, List
 from moredataframes.errors import UserFunctionCallError
 from moredataframes.mdfutils import to_numpy, string_param
+from moredataframes.encodings import encoding_function
+from moredataframes.constants import BIN_RIGHT_EDGE_OFFSET
 import numpy as np
 
 
@@ -14,33 +15,49 @@ def binning_function(func: Callable[..., NDArray[Any]]) -> Callable[..., NDArray
     Ensures that:
         - the input vals will be a numpy NDArray
         - if inverse=True, then decode_bins is called instead of the binning function
+        - if 'bins' is in encoding_info, then digitize is called instead of the binning function
     :param func: the binning function
     :return: a binning function
     """
-    def wrapper(vals: ArrayLike, einfo: EFuncInfo, inverse: Optional[bool] = False, **kwargs: Any) -> NDArray[Any]:
+    def wrapper(vals: ArrayLike, encoding_info: Union[None, EFuncInfo] = None, inverse: Optional[bool] = False,
+                **kwargs: Any) -> NDArray[Any]:
+        encoding_info = {} if encoding_info is None else encoding_info
         vals = to_numpy(vals)
+
+        # If vals is empty, just return vals
+        if vals.size == 0:
+            return vals, encoding_info
 
         # Check that encoding_info contains what it should, if inverse = True, then return the decoded values
         if inverse:
-
-            # We want two different function calls here so the default decode_method can be kept if I change it ever
             if 'decode_method' in kwargs:
-                return decode_bins(vals, einfo[ENCODING_INFO_BINS_KEY], decode_method=kwargs['decode_method'])
-            return decode_bins(vals, einfo[ENCODING_INFO_BINS_KEY])
+                return _decode_bins(vals, encoding_info['bins'], decode_method=kwargs['decode_method']), encoding_info
+            return _decode_bins(vals, encoding_info['bins']), encoding_info
 
-        return func(vals, einfo, **kwargs)
+        # Returns the digitized values after bins have been computed
+        def _dig(v):
+            if 'edge_behavior' in kwargs:
+                return digitize(v, encoding_info, edge_behavior=kwargs['edge_behavior'])
+            return digitize(v, encoding_info)
+
+        # Check if 'bins' is in einfo. We dont need encoding_function here since future binning is done based
+        #   on past bins, not on new kwargs
+        if 'bins' in encoding_info:
+            return _dig(vals)
+
+        encoding_info['bins'] = func(vals, encoding_info, **kwargs)
+        return _dig(vals)
 
     return wrapper
 
 
-def decode_bins(vals: ArrayLike, bin_edges: Sequence[Union[Sequence[Union[float, int]], NDArray[Any]]],
-                decode_method: Optional[Union[str, Callable[[NDArray[Any], NDArray[Any]], ArrayLike]]] = 'range') \
-        -> NDArray[Any]:
+def _decode_bins(vals: ArrayLike, bin_edges: Sequence[NDArray[Any]], decode_method: \
+        Optional[Union[str, Callable[[NDArray[Any], NDArray[Any]], ArrayLike]]] = 'range') -> NDArray[Any]:
     """
     Decodes binned columns with the given bin_edges. Multiple different binning decoding methods are available since
         decoding binned columns is lossy. (If you wish for exact decodings, use continuous_binning methods).
     :param vals: values to decode
-    :param bin_edges: the edges of the bins. Should be a sequence of sequences of floats or ints such that a bin index 
+    :param bin_edges: the edges of the bins. Should be a sequence of ndarray's such that a bin index
         of 'i' corresponds to the value having been in the range [bin_edges[i], bin_edges[i + 1]) for i in the range
         [0, len(bin_edges) - 1). This corresponds to numpy's binning (digitize, searchsorted, etc.) being 'left', or
         having right=False.
@@ -50,39 +67,11 @@ def decode_bins(vals: ArrayLike, bin_edges: Sequence[Union[Sequence[Union[float,
         - 'left': return the left side of the bin. IE: assume the values were the smallest possible value.
         - 'right': return the right side of the bin. IE: assume the values were the largest possible value.
         - 'mid': return the midpoint of the bin. IE: assume the values were the average of the possible values.
-            NOTE: If either of the values are np.inf or -np.inf, then the value returned will be the non-infinity
-                value only instead of the midpoint.
 
         If a function, then the function should take in two numpy arrays (first being the lower bin edges, second
             being the upper bin edges), and return an ArrayLike the same size as both the input arrays.
     :return: a numpy array
     """
-    vals = to_numpy(vals)
-
-    # Make sure bin_edges is correct format
-    def _make_numpy(a, error_message):
-        try:
-            a = to_numpy(a).reshape(-1)
-        except (ValueError, TypeError):
-            try:
-                a = np.array([b for b in a])
-            except TypeError:
-                raise TypeError(error_message % type(a))
-    
-    bin_edges = _make_numpy(bin_edges, "bin_edges is not a sequence of sequences, instead is: %s")
-    
-    # Make sure each value in bin_edges is an array of values
-    for i, b in enumerate(bin_edges):
-        bin_edges[i] = _make_numpy(b, "bin list at bin_edges[" + str(i) + "] is not a sequence of floats or ints"
-            ", instead is: %s")
-
-    # Sort the bin edges
-    bin_edges = np.sort(bin_edges)
-
-    # Check decode_method is either a string or implements __call__
-    if not (isinstance(decode_method, str) or callable(decode_method)):
-        raise TypeError("decode_method should be either a string or callable, instead is: %s" % type(decode_method))
-
     ret = []
 
     # Apply over each column in vals
@@ -97,10 +86,7 @@ def decode_bins(vals: ArrayLike, bin_edges: Sequence[Union[Sequence[Union[float,
             elif string_param(decode_method, ['right', 'large', 'largest', 'max', 'maximum']):
                 ret.append(bins[col + 1])
             elif string_param(decode_method, ['mid', 'middle', 'midpoint', 'average', 'mean']):
-                # Need to make sure values aren't infinity
-                a = np.where(np.isinf(bins[col]), bins[col + 1], bins[col])
-                b = np.where(np.isinf(bins[col + 1]), bins[col], bins[col + 1])
-                ret.append((a + b) / 2)
+                ret.append((bins[col] + bins[col + 1]) / 2)
             else:
                 raise ValueError("Unknown binning decode_method: %s" % decode_method)
 
@@ -120,52 +106,97 @@ def decode_bins(vals: ArrayLike, bin_edges: Sequence[Union[Sequence[Union[float,
     return np.array(ret).T
 
 
-def digitize(vals: ArrayLike, encoding_info: EFuncInfo, edge_behavior=''):
+_WARN_VALS = ['warn', 'raise', 'error']
+_CLOSEST_VALS = ['closest', 'close']
+_EXPAND_VALS = ['expand', 'extend']
+
+
+@encoding_function  # Not a binning function since it gets called in binning_function and would be infinte recursion
+def digitize(vals: ArrayLike, encoding_info: EFuncInfo, edge_behavior: str = 'warn', inverse: bool = False):
     """
     Similar to numpy's digitize() method, bins the values based on specified bins.
     :param vals: the ArrayLike object to encode
-    :param encoding_info: a dictionary to add encoding information into when inverse=False, or a dictionary that
-        contains the encoding information when inverse=True. The encoding_info is a separate, empty dictionary created
-        for each call to the encoding function. Modify as you wish within this function call without fears of
-        overwriting other data.
+    :param encoding_info: a dictionary to add encoding information into, or to use if this is a subsequent call
+        to this function and you wish to encode/decode in the same way as encoded previously
 
-        Stores:
-            - 'bins': a list of lists of bin indices (one list of bin indices for each column, from left to right)
-            - 'edge_behavior':
-
-    :param edge_behavior:
-    :return:
+        Should contain at least the key:
+        - 'bins': the edges of the bins. Should be a sequence of sequences of floats or ints such that a bin index
+            of 'i' corresponds to the value having been in the range [bin_edges[i], bin_edges[i + 1]) for i in the range
+            [0, len(bin_edges) - 1). This corresponds to numpy's binning (digitize, searchsorted, etc.) being 'left', or
+            having right=False.
+    :param edge_behavior: how to deal with values that fall outside the bin_edges (IE: are smaller than the smallest
+        bin_edge, or larger than the largest). This (should) only happen on future calls to binning functions using
+        a previous call's encoding_info. Can be:
+            - 'warn': raises an error if this occurs
+            - 'closest': puts value into the closest bin
+            - 'expand': expands the bins to contain the current values at the edges, and returns new bins in the
+                encoding_info
+    :param inverse: not used. Here because of @encoding_function decorator call
+    :return: numpy array
     """
-    pass
+
+    if 'bins' not in encoding_info or encoding_info['bins'] is None:
+        raise TypeError("Must pass bins in encoding_info in order to digitize.")
+
+    if vals.size == 0:
+        return vals
+
+    ret, ret_bins = [], []
+    for col, b in zip(vals.T, encoding_info['bins']):
+
+        # If edge_behavior is 'closest', then clip the values to be in the right range
+        if string_param(edge_behavior, _CLOSEST_VALS):
+            col = np.clip(col, b[0], (b[-1] + b[-2]) / 2)
+
+        # Check for values outside the bin edges
+        _min, _max = np.min(col), np.max(col)
+        if _min < b[0]:
+            if string_param(edge_behavior, _WARN_VALS):
+                raise ValueError("Value found smaller than the minimum bin edge: " + str(min(col)))
+            elif string_param(edge_behavior, _EXPAND_VALS):
+                b = np.concatenate(([_min], b))
+        if _max >= b[-1]:
+            if string_param(edge_behavior, _WARN_VALS):
+                raise ValueError("Value found larger than or equal to the maximum bin edge: " + str(max(col)))
+            elif string_param(edge_behavior, _EXPAND_VALS):
+                b = np.concatenate((b, [_max + BIN_RIGHT_EDGE_OFFSET]))
+
+        # Otherwise, time to digitize
+        ret.append(np.digitize(col, b) - 1)
+        ret_bins.append(b)
+
+    encoding_info.update({'bins': ret_bins, 'edge_behavior': edge_behavior})
+    return np.array(ret).T
 
 
-@binning_function(num_bins=int)
+@binning_function
 def fixed_length(vals: ArrayLike, encoding_info: EFuncInfo, num_bins:int = 10):
     """
     Bin values into fixed-length bins.
 
     :param vals: the ArrayLike object to encode
-    :param encoding_info: a dictionary to add encoding information into when inverse=False, or a dictionary that
-        contains the encoding information when inverse=True. The encoding_info is a separate, empty dictionary created
-        for each call to the encoding function. Modify as you wish within this function call without fears of
-        overwriting other data.
-
-        Stores:
-            - 'bins': a list of lists of bin indices (one list of bin indices for each column, from left to right)
-    
+    :param encoding_info: a dictionary to add encoding information into, or to use if this is a subsequent call
+        to this function and you wish to encode/decode in the same way as encoded previously
     :param num_bins: the number of bins to use
     :return: a numpy array
     """
+    # If num_bins is 1, then just return bins=vals[0], vals[0] + BIN_RIGHT_EDGE_OFFSET
+    if num_bins == 1:
+        return [[v[0], v[0] + BIN_RIGHT_EDGE_OFFSET] for v in vals]
+
+    # If num_bins <= 0, raise an error
+    if num_bins <= 0:
+        raise ValueError("num_bins must be integer > 0, instead is: " + str(num_bins))
+
+    # Otherwise if num_bins != 1, but each column only has length 1, raise an error
+    if vals.shape[0] == 1:
+        raise ValueError("Cannot bin columns of length 1 into multiple bins.")
 
     ret = []
-    efunc_bins = []
     for col in vals.T:
         _min, _max = np.min(col), np.max(col)
-        bins = np.arange(_min, _max, step=(_max-_min) / num_bins)
-        ret.append(np.digitize(col, bins, ))
-        efunc_bins.append(bins)
-    
-    encoding_info[ENCODING_INFO_BINS_KEY] = efunc_bins
-    
-    # Remember to transpose
-    return np.array(ret).T
+        ret.append(np.empty([num_bins + 1]))
+        ret[-1][:-1] = np.arange(_min, _max, step=(_max - _min) / num_bins)
+        ret[-1][-1] = _max + BIN_RIGHT_EDGE_OFFSET
+
+    return ret

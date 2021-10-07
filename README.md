@@ -75,3 +75,10 @@ Encoding function:
 - Any data needed for decoding should be put into the given encoding_info dictionary. This dictionary is unique to each
     function call, so if you want something that is the same throughout each function call, wrap the function with that
     as a kwarg before using it in the encoding dictionary
+
+
+
+
+TODO:
+- add 'apply same to all columns' to encoding functions
+- speed up chimerge
