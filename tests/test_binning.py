@@ -144,7 +144,7 @@ def test_chimerge():
     np.testing.assert_array_equal(encoding_info['bins'], [[1, 6, 6 + BIN_RIGHT_EDGE_OFFSET]])
     np.testing.assert_array_equal(output, np.array([[0, 0, 0, 0, 0, 1]]).T)
 
-    size = 100_0000
+    size = 100_000
     vals = np.random.randint(0, 10000, size=[size])
     labels = np.where(vals < 1_000, 0, 1)
     output, encoding_info = chi_merge(vals, labels=labels)
@@ -152,6 +152,15 @@ def test_chimerge():
 
     with pytest.raises(TypeError):
         output, encoding_info = chi_merge(vals)
+    
+    with pytest.raises(ValueError):
+        otuput, encoding_info = chi_merge(vals, labels=labels, min_bins=1)
+
+    with pytest.raises(ValueError):
+        otuput, encoding_info = chi_merge(vals, labels=labels, max_bins=-1)
+
+    with pytest.raises(ValueError):
+        otuput, encoding_info = chi_merge(vals, labels=labels, min_bins=10, max_bins=3)
 
 
 if __name__ == "__main__":

@@ -162,3 +162,21 @@ def speedtest_chi_square_all():
 
     speedtest(speed_inputs, speed_input_labels, funcs)
 
+
+def speedtest_caim():
+    """
+    Test the speed of different algorithms for finding the boundary point with the best CAIM value.
+    Computation:
+        4. For every boundary point: compute the CAIM value if we were to add that point into the bin list
+            CAIM(C, D | F) = (1/n) * sum(max(q_i) / M_i for i in range n)
+
+            Where C is the classes, D is the current discretization method, F is the current attribute (column),
+                n is the number of bins in the current D, max(q_i) is the maximum value in the class frequency counts
+                for the bin i, and M_i is the total number of datapoint that are in the bin i
+        
+    Should return the index of the boundary point, as well as its caim value
+    """
+
+    def slow_python(boundary_points, bins):
+        for i, b in enumerate(boundary_points):
+            pass

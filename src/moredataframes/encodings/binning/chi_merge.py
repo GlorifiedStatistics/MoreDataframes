@@ -81,6 +81,9 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = Non
     if not 0 < threshold <= 1:
         raise ValueError("Threshold should be in the range (0, 1], instead is: %f" % threshold)
 
+    # Make sure min_bins and max_bins are good values
+    _check_good_min_max_bins(min_bins, max_bins)
+
     ret_bins = []
 
     # Find the number of classes, and the chi2 value of our threshold/p-value. For this, we use the inverse
@@ -97,9 +100,7 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = Non
 
         # Left such that if boundary_indices[i] = x, then labels[x - 1] != labels[x], but labels[x - 1] may be equal
         #    to labels[x - 2]. IE: the i-th partition is the labels range [boundary_indices[i - 1], boundary_indices[i])
-        # This is much faster if we only look for places where both col and labels_sorted change
-        boundary_indices = np.argwhere(np.logical_and(col[:-1] != col[1:],
-                                       labels_sorted[:-1] != labels_sorted[1:])).reshape(-1) + 1
+        boundary_indices = np.argwhere(col[:-1] != col[1:]).reshape(-1) + 1
 
         # Compute all the chi-square values
         chi_squares = _numba_accelerate_chi_square_all(boundary_indices, labels_sorted, num_classes)
@@ -181,3 +182,17 @@ def _numba_accelerate_chi_square_all(b, l, num_classes):
         flip = not flip
 
     return ret
+
+
+def _check_good_min_max_bins(min_bins: int, max_bins: int):
+    """
+    Checks to make sure min_bins and max_bins are good values.
+    """
+    if min_bins < 2:
+        raise ValueError("Min_bins must be integer >= 2, got: %d" % min_bins)
+    
+    if max_bins < 2:
+        raise ValueError("Max_bins must be integer >= 2, got: %d" % max_bins)
+    
+    if min_bins > max_bins:
+        raise ValueError("Min_bins must be <= max_bins, got min_bins: %d, max_bins: %d" % (min_bins, max_bins))
