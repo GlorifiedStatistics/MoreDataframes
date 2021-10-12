@@ -137,22 +137,23 @@ def test_decode_failure():
         _, __ = fixed_length(vals, encoding_info=encoding_info, decode_method=f, inverse=True)
 
 
-def chim():
+def test_chimerge():
     vals = [1, 2, 3, 4, 5, 6]
     labels = [0, 1, 0, 1, 0, 1]
     output, encoding_info = chi_merge(vals, labels=labels, max_bins=3)
+    np.testing.assert_array_equal(encoding_info['bins'], [[1, 6, 6 + BIN_RIGHT_EDGE_OFFSET]])
+    np.testing.assert_array_equal(output, np.array([[0, 0, 0, 0, 0, 1]]).T)
 
     size = 100_0000
     vals = np.random.randint(0, 10000, size=[size])
     labels = np.where(vals < 1_000, 0, 1)
-
-    from timeit import default_timer
-    t = default_timer()
     output, encoding_info = chi_merge(vals, labels=labels)
-    print(default_timer() - t)
-    print(encoding_info['bins'])
+    np.testing.assert_array_equal(encoding_info['bins'], [[min(vals), 1000, max(vals) + BIN_RIGHT_EDGE_OFFSET]])
+
+    with pytest.raises(TypeError):
+        output, encoding_info = chi_merge(vals)
 
 
 if __name__ == "__main__":
     #print("No current test")
-    chim()
+    test_chimerge()

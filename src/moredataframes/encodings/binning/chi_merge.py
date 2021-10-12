@@ -26,7 +26,7 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = Non
 
     Algorithm overview:
         1. Sort the column
-        2. Partition at every boundary point (value where class label changes)
+        2. Partition at every boundary point (value where class label and value changes)
         3. Compute the chi-square value on given labels between all adjacent partitions
             a. Sum is computed as:
                 sum(sum( (A_ij - E_ij)^2 / E_ij for j in range(k)) for i in range(2))
@@ -63,6 +63,8 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = Non
     :return: a numpy array
     """
     # Enforce that classes is integers
+    if labels is None:
+        raise TypeError("Must pass class labels in kwarg 'labels'")
     labels = to_numpy(labels).reshape(-1)
     num_classes = len(np.unique(labels))
     labels, label_labels = pd.factorize(labels) if not np.issubdtype(labels.dtype, np.integer) or \
@@ -95,7 +97,9 @@ def chi_merge(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = Non
 
         # Left such that if boundary_indices[i] = x, then labels[x - 1] != labels[x], but labels[x - 1] may be equal
         #    to labels[x - 2]. IE: the i-th partition is the labels range [boundary_indices[i - 1], boundary_indices[i])
-        boundary_indices = np.argwhere(col[:-1] != col[1:]).reshape(-1) + 1
+        # This is much faster if we only look for places where both col and labels_sorted change
+        boundary_indices = np.argwhere(np.logical_and(col[:-1] != col[1:],
+                                       labels_sorted[:-1] != labels_sorted[1:])).reshape(-1) + 1
 
         # Compute all the chi-square values
         chi_squares = _numba_accelerate_chi_square_all(boundary_indices, labels_sorted, num_classes)
