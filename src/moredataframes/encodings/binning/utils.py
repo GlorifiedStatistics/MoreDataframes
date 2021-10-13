@@ -215,16 +215,22 @@ def get_boundary_points(vals: NDArray[Any], labels: NDArray[Any], boundary_type=
         raise ValueError("Vals and labels should have the same length, instead have lengths: %d, %d" %
                          (len(vals), len(labels)))
 
-    if len(vals) == 0:
+    if len(vals) <= 1:
         return np.array([])
     
     if string_param(boundary_type, ['vals', 'change_vals', 'cvals']):
-        pass
+        return np.argwhere(vals[:-1] != vals[1:]).reshape(-1) + 1
     elif string_param(boundary_type, ['labels', 'change_labels', 'clabels']):
-        pass
+        bounds = np.argwhere(labels[:-1] != labels[1:]).reshape(-1) + 1
+
+        # We need to make sure there is only a change on places where vals changes, otherwise shift the bins over
+        val_bounds = np.argwhere(vals[:-1] != vals[1:]).reshape(-1) + 1
+        indices = np.searchsorted(val_bounds, bounds, size='right')
+        new_bounds = np.where()
     elif string_param(boundary_type, ['and', 'logical_and', 'both']):
-        pass
+        return np.argwhere(np.logical_and(vals[:-1] != vals[1:], labels[:-1] != labels[1:])).reshape(-1) + 1
     elif string_param(boundary_type, ['best', 'ideal']):
-        pass
+        bounds = np.argwhere(vals[:-1] != vals[1:]).reshape(-1) + 1
+
     else:
         raise ValueError("Unkown boundary_type method: %s" % boundary_type)
