@@ -9,7 +9,7 @@ from moredataframes.mdfutils import to_numpy
 _LOG2of3 = np.log2(3)
 
 
-def mdlp_bin(x: ArrayLike, y: ArrayLike) -> NDArray[Any]:
+def mdlp(x: ArrayLike, y: ArrayLike) -> NDArray[Any]:
     """
     Does MDLP discretization on data x given classes y.
     """

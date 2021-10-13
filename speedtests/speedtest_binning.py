@@ -177,6 +177,72 @@ def speedtest_caim():
     Should return the index of the boundary point, as well as its caim value
     """
 
-    def slow_python(boundary_points, bins):
+    def slow_python(labels, boundary_points, bins, num_classes, unused_current_counts):
+        points_and_vals = []
         for i, b in enumerate(boundary_points):
-            pass
+            # Add our new boundary to the current list of bin boundaries
+            t_bins = np.sort(np.concatenate((bins, [b])))
+            n = len(t_bins) - 1
+
+            # Count the number of examples for each class in each bin
+            counts = np.zeros(shape=[num_classes, n])
+            for idx in range(n):
+                min_idx, max_idx = t_bins[idx], t_bins[idx + 1]
+                un, c = np.unique(labels[min_idx:max_idx], return_counts=True)
+                counts[un, idx] = c
+
+            # Compute the caim statistic
+            caim_val = (1 / n) * sum([(np.max(counts[:, i]) / np.sum(counts[:, i])) for i in range(n)])
+            points_and_vals.append((b, caim_val))
+        return points_and_vals
+
+    def faster_python(labels, boundary_points, bins, num_classes, current_counts):
+        points_and_vals = []
+        for i, b in enumerate(boundary_points):
+            # Find the bin we are testing
+            idx = np.searchsorted(bins, b, side='right') - 1
+            larger_side_left = b - bins[idx] >= bins[idx + 1] - b
+            min_idx, max_idx = bins[idx], bins[idx + 1]
+
+            old_c = current_counts[:, idx].copy()
+            new_c = np.zeros(shape=[num_classes])
+
+            un, c = np.unique(labels[b:max_idx] if larger_side_left else labels[min_idx:b], return_counts=True)
+            old_c[un] -= c
+            new_c[un] += c
+
+            caim_val = (1 / len(bins)) * sum([(np.max(current_counts[:, i]) / np.sum(current_counts[:, i]))
+                                              if i != idx else 0 for i in range(len(bins) - 1)])
+            caim_val += (1 / len(bins)) * sum([(np.max(a) / np.sum(a)) for a in [old_c, new_c]])
+            points_and_vals.append((b, caim_val))
+        return points_and_vals
+
+    sizes = [100, 1_000, 10_000]
+    test_vals = [
+        (np.random.randint(0, 100, size=s), np.random.randint(0, 10, size=s)) for s in sizes
+    ]
+
+    speed_input_labels = [
+        ('size: %d' % s) for s in sizes
+    ]
+
+    funcs = [
+        slow_python,
+        faster_python,
+    ]
+
+    speed_inputs = [
+        [(
+            label,
+            np.argwhere(val[:-1] != val[1:]).reshape(-1)[:-1] + 1,
+            np.array([0, len(val)]),
+            max(label) + 1,
+            np.unique(label, return_counts=True)[1].reshape([-1, 1])
+        ), {}]for val, label in test_vals
+    ]
+
+    speedtest(speed_inputs, speed_input_labels, funcs)
+
+
+if __name__ == "__main__":
+    speedtest_caim()

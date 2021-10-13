@@ -62,6 +62,37 @@ def caim(vals: ArrayLike, encoding_info: EFuncInfo, labels: ArrayLike = None,
         boundary_indices = np.argwhere(col[:-1] != col[1:]).reshape(-1) + 1
 
         current_caim = 0
+        current_counts = np.unique(label, return_counts=True)[1].reshape([-1, 1])
         bins = []
+
+def _get_best_cut_point(labels, boundary_points, bins, num_classes, current_counts):
+    best_point = None
+    best_val = -100
+    best_old_c, best_new_c = None
+    for i, b in enumerate(boundary_points):
+        # Find the bin we are testing
+        idx = np.searchsorted(bins, b, side='right') - 1
+        larger_side_left = b - bins[idx] >= bins[idx + 1] - b
+        min_idx, max_idx = bins[idx], bins[idx + 1]
+
+        old_c = current_counts[:, idx].copy()
+        new_c = np.zeros(shape=[num_classes])
+
+        un, c = np.unique(labels[b:max_idx] if larger_side_left else labels[min_idx:b], return_counts=True)
+        old_c[un] -= c
+        new_c[un] += c
+
+        caim_val = (1 / len(bins)) * sum([(np.max(current_counts[:, i]) / np.sum(current_counts[:, i]))
+                                          if i != idx else 0 for i in range(len(bins) - 1)])
+        caim_val += (1 / len(bins)) * sum([(np.max(a) / np.sum(a)) for a in [old_c, new_c]])
+
+        if caim_val > best_val:
+            best_point = b
+            best_val = caim_val
+            best_old_c = old_c
+            best_new_c = new_c
+
+    new_counts =
+    return best_point, best_val
 
         
