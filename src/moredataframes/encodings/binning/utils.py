@@ -217,7 +217,7 @@ def get_boundary_points(vals: NDArray[Any], labels: NDArray[Any], boundary_type=
 
     if len(vals) == 0:
         return np.array([])
-    
+
     if string_param(boundary_type, ['vals', 'change_vals', 'cvals']):
         pass
     elif string_param(boundary_type, ['labels', 'change_labels', 'clabels']):
